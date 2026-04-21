@@ -1,0 +1,274 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+.wrap{padding:1.5rem 0;font-family:var(--font-sans);color:var(--color-text-primary)}
+.card{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:1.25rem 1.5rem;margin-bottom:1rem}
+.title{font-size:18px;font-weight:500;margin-bottom:4px}
+.sub{font-size:13px;color:var(--color-text-secondary);margin-bottom:1.25rem;line-height:1.6}
+.drop-zone{border:1.5px dashed var(--color-border-secondary);border-radius:var(--border-radius-md);padding:2.5rem 1rem;text-align:center;cursor:pointer;transition:background .15s}
+.drop-zone:hover,.drop-zone.over{background:var(--color-background-secondary)}
+.drop-icon{font-size:28px;margin-bottom:8px;color:var(--color-text-tertiary)}
+.drop-label{font-size:14px;color:var(--color-text-secondary)}
+.drop-label b{color:var(--color-text-primary);font-weight:500}
+#file-input{display:none}
+.status-bar{display:none;align-items:center;gap:8px;padding:.7rem 1rem;border-radius:var(--border-radius-md);font-size:13px;margin-top:.75rem}
+.status-bar.show{display:flex}
+.s-idle{background:var(--color-background-secondary);color:var(--color-text-secondary)}
+.s-ok{background:#EAF3DE;color:#27500A}
+.s-err{background:#FCEBEB;color:#791F1F}
+.stats{display:none;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:.75rem}
+.stats.show{display:grid}
+.stat{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:.75rem 1rem;text-align:center}
+.stat-val{font-size:22px;font-weight:500}
+.stat-lbl{font-size:12px;color:var(--color-text-secondary);margin-top:2px}
+.legend{display:none;gap:12px;flex-wrap:wrap;margin-top:.75rem}
+.legend.show{display:flex}
+.leg-item{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--color-text-secondary)}
+.leg-dot{width:10px;height:10px;border-radius:50%}
+.preview{display:none;margin-top:.75rem;max-height:220px;overflow-y:auto;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md)}
+.preview.show{display:block}
+.preview table{width:100%;font-size:12px;border-collapse:collapse}
+.preview th{background:var(--color-background-secondary);padding:6px 8px;font-weight:500;position:sticky;top:0;text-align:center;border-bottom:0.5px solid var(--color-border-tertiary);white-space:nowrap}
+.preview td{padding:5px 8px;border-bottom:0.5px solid var(--color-border-tertiary);text-align:center}
+.preview tr:last-child td{border-bottom:none}
+.r-jing td{background:#D9EAD3}.r-chong td{background:#FCE5CD}.r-fang td{background:#CFE2F3}
+.btn-dl{display:none;width:100%;padding:.7rem;font-size:14px;font-weight:500;border-radius:var(--border-radius-md);cursor:pointer;border:none;background:#185FA5;color:#fff;margin-top:.75rem}
+.btn-dl:hover{background:#0C447C}
+.btn-dl.show{display:block}
+</style>
+
+<div class="wrap">
+<div class="card">
+  <div class="title">电池状态汇总处理工具</div>
+  <div class="sub">上传原始 .xlsx 文件（列位置：A=时间 E=SOC M=累计充电Ah N=累计放电Ah O=运行状态），自动输出充电/放电/静置分段汇总。</div>
+  <div class="drop-zone" id="dz" onclick="document.getElementById('file-input').click()">
+    <div class="drop-icon">📄</div>
+    <div class="drop-label"><b>点击选择文件</b>&nbsp;或将 .xlsx 拖入此处</div>
+  </div>
+  <input type="file" id="file-input" accept=".xlsx,.xls">
+  <div class="status-bar" id="statusBar"><span id="statusText"></span></div>
+  <div class="stats" id="stats">
+    <div class="stat"><div class="stat-val" id="sTotal">0</div><div class="stat-lbl">状态段总数</div></div>
+    <div class="stat"><div class="stat-val" id="sChong">0</div><div class="stat-lbl">充电段</div></div>
+    <div class="stat"><div class="stat-val" id="sFang">0</div><div class="stat-lbl">放电段</div></div>
+  </div>
+  <div class="legend" id="legend">
+    <div class="leg-item"><div class="leg-dot" style="background:#8DB08D"></div>静置</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#F4B183"></div>充电</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#6FA8C8"></div>放电</div>
+  </div>
+  <div class="preview" id="preview">
+    <table><thead id="thead"></thead><tbody id="tbody"></tbody></table>
+  </div>
+  <button class="btn-dl" id="btnDl" onclick="downloadResult()">↓ 下载汇总 Excel</button>
+</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
+<script>
+var resultWB = null;
+
+var dz = document.getElementById('dz');
+dz.addEventListener('dragover', function(e){ e.preventDefault(); dz.classList.add('over'); });
+dz.addEventListener('dragleave', function(){ dz.classList.remove('over'); });
+dz.addEventListener('drop', function(e){ e.preventDefault(); dz.classList.remove('over'); if(e.dataTransfer.files[0]) processFile(e.dataTransfer.files[0]); });
+document.getElementById('file-input').addEventListener('change', function(){ if(this.files[0]) processFile(this.files[0]); });
+
+function setStatus(msg, type) {
+  var bar = document.getElementById('statusBar');
+  bar.className = 'status-bar show s-' + type;
+  document.getElementById('statusText').textContent = msg;
+}
+
+function hide(){ ['stats','legend','preview'].forEach(function(id){ document.getElementById(id).classList.remove('show'); }); document.getElementById('btnDl').classList.remove('show'); }
+
+/* 把 Excel 序列数（如 44927.5）转成 "YYYY-MM-DD HH:mm:ss" 字符串 */
+function excelDateToStr(serial) {
+  /* Excel 以 1900-01-01 为第1天，但有闰年Bug把1900-02-29算在内，所以要-1 */
+  var utc = (serial - 25569) * 86400 * 1000;
+  var d = new Date(utc);
+  var z = function(n){ return String(n).padStart(2,'0'); };
+  return d.getUTCFullYear()+'-'+z(d.getUTCMonth()+1)+'-'+z(d.getUTCDate())+' '+z(d.getUTCHours())+':'+z(d.getUTCMinutes())+':'+z(d.getUTCSeconds());
+}
+
+/* 安全转数字：支持 number / Date 对象 / 字符串 */
+function toNum(v) {
+  if (v === null || v === undefined || v === '') return 0;
+  if (typeof v === 'number') return v;
+  if (v instanceof Date) return 0;
+  var s = String(v).replace(/[^\d.\-]/g, '');
+  return parseFloat(s) || 0;
+}
+
+/* 把时间列原始值转字符串，兼容三种情况：Date对象 / Excel序列数 / 已是字符串 */
+function timeToStr(v) {
+  if (!v && v !== 0) return '';
+  if (v instanceof Date) {
+    var z = function(n){ return String(n).padStart(2,'0'); };
+    return v.getFullYear()+'-'+z(v.getMonth()+1)+'-'+z(v.getDate())+' '+z(v.getHours())+':'+z(v.getMinutes())+':'+z(v.getSeconds());
+  }
+  if (typeof v === 'number') return excelDateToStr(v);
+  return String(v);
+}
+
+function processFile(file) {
+  resultWB = null;
+  hide();
+  setStatus('读取文件中...', 'idle');
+
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      var data = new Uint8Array(e.target.result);
+
+      /* 关键：不传 cellDates，让日期以原始数字读入，避免和 raw 选项冲突 */
+      var wb = XLSX.read(data, { type: 'array' });
+      var ws = wb.Sheets[wb.SheetNames[0]];
+
+      /* raw:true → 所有值保持原始类型（数字/字符串），不做格式化 */
+      var allRows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: true });
+
+      if (allRows.length < 2) { setStatus('文件数据为空', 'err'); return; }
+
+      var TIME=0, SOC=4, M=12, N=13, STATE=14;
+      var validSet = { '静置':1, '充电':1, '放电':1 };
+
+      /* 跳过第0行（表头），过滤有效状态行 */
+      var filtered = [];
+      for (var i = 1; i < allRows.length; i++) {
+        var row = allRows[i];
+        var s = String(row[STATE] || '').trim();
+        if (validSet[s]) filtered.push(row);
+      }
+
+      if (filtered.length === 0) {
+        setStatus('未找到静置/充电/放电数据，请确认 O 列是运行状态列', 'err');
+        return;
+      }
+
+      /* 识别连续分组：状态相同的连续行归一组 */
+      var groups = [];
+      var cur = null;
+      for (var j = 0; j < filtered.length; j++) {
+        var row = filtered[j];
+        var s = String(row[STATE] || '').trim();
+        if (!cur || cur.state !== s) {
+          cur = { state: s, rows: [row] };
+          groups.push(cur);
+        } else {
+          cur.rows.push(row);
+        }
+      }
+
+      /*
+        Python 原始逻辑：数据是倒序排列（最新行在最上面）
+          iloc[0]  = 第一行 = 最新时刻 = 结束时间
+          iloc[-1] = 最后行 = 最早时刻 = 起始时间
+        JS 里：
+          rows[0]            = firstRow = 结束
+          rows[rows.length-1] = lastRow  = 起始
+      */
+      var results = [];
+      for (var k = 0; k < groups.length; k++) {
+        var g = groups[k];
+        var r = g.rows;
+        var endRow   = r[0];              // 最新（结束）
+        var startRow = r[r.length - 1];   // 最早（起始）
+
+        var startTime = timeToStr(startRow[TIME]);
+        var endTime   = timeToStr(endRow[TIME]);
+        var startSOC  = toNum(startRow[SOC]);
+        var endSOC    = toNum(endRow[SOC]);
+
+        var ah;
+        if (g.state === '充电') {
+          /* M列：累计充电安时，结束值(endRow) - 起始值(startRow) */
+          ah = toNum(endRow[M]) - toNum(startRow[M]);
+        } else {
+          /* N列：累计放电安时，静置/放电同逻辑 */
+          ah = toNum(endRow[N]) - toNum(startRow[N]);
+        }
+        ah = Math.round(ah * 10000) / 10000;
+
+        results.push([g.state, startTime, endTime, startSOC, endSOC, ah]);
+      }
+
+      /* 统计 */
+      var chong=0, fang=0;
+      results.forEach(function(r){ if(r[0]==='充电') chong++; else if(r[0]==='放电') fang++; });
+      document.getElementById('sTotal').textContent = results.length;
+      document.getElementById('sChong').textContent = chong;
+      document.getElementById('sFang').textContent  = fang;
+      document.getElementById('stats').classList.add('show');
+      document.getElementById('legend').classList.add('show');
+
+      /* 预览表格（最多前20行） */
+      var headers = ['运行状态','起始时间','结束时间','起始SOC','结束SOC','放电/充电Ah数'];
+      document.getElementById('thead').innerHTML = '<tr>' + headers.map(function(h){ return '<th>'+h+'</th>'; }).join('') + '</tr>';
+      var stClass = { '静置':'r-jing', '充电':'r-chong', '放电':'r-fang' };
+      document.getElementById('tbody').innerHTML = results.slice(0,20).map(function(r){
+        return '<tr class="'+(stClass[r[0]]||'')+'">'+r.map(function(v){ return '<td>'+v+'</td>'; }).join('')+'</tr>';
+      }).join('');
+      document.getElementById('preview').classList.add('show');
+
+      /* 构建输出 Workbook（用 ExcelJS，支持完整样式） */
+      var EWB = new ExcelJS.Workbook();
+      var EWS = EWB.addWorksheet('电池状态汇总');
+
+      EWS.columns = [
+        {width:12},{width:22},{width:22},{width:12},{width:12},{width:18}
+      ];
+
+      var thin = {style:'thin', color:{argb:'FFAAAAAA'}};
+      var allBorder = {top:thin, left:thin, bottom:thin, right:thin};
+
+      /* 表头行 */
+      var hdrRow = EWS.addRow(['运行状态','起始时间','结束时间','起始SOC','结束SOC','放电/充电Ah数']);
+      hdrRow.height = 22;
+      hdrRow.eachCell(function(cell){
+        cell.font      = {bold:true, color:{argb:'FFFFFFFF'}, name:'Arial', size:11};
+        cell.fill      = {type:'pattern', pattern:'solid', fgColor:{argb:'FF2E4057'}};
+        cell.alignment = {horizontal:'center', vertical:'middle'};
+        cell.border    = allBorder;
+      });
+
+      /* 数据行 */
+      var fillMap = {'静置':'FFD9EAD3','充电':'FFFCE5CD','放电':'FFCFE2F3'};
+      results.forEach(function(r){
+        var row = EWS.addRow(r);
+        var fg  = fillMap[r[0]] || 'FFFFFFFF';
+        row.eachCell(function(cell){
+          cell.font      = {name:'Arial', size:10, color:{argb:'FF333333'}};
+          cell.fill      = {type:'pattern', pattern:'solid', fgColor:{argb:fg}};
+          cell.alignment = {horizontal:'center', vertical:'middle'};
+          cell.border    = allBorder;
+        });
+      });
+
+      resultWB = EWB;
+
+      setStatus('处理完成，共 ' + results.length + ' 个状态段（下方显示前20行）', 'ok');
+      document.getElementById('btnDl').classList.add('show');
+
+    } catch(err) {
+      setStatus('处理出错：' + err.message, 'err');
+      console.error(err);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function downloadResult() {
+  if (!resultWB) return;
+  resultWB.xlsx.writeBuffer().then(function(buf){
+    var blob = new Blob([buf], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+    var url  = URL.createObjectURL(blob);
+    var a    = document.createElement('a');
+    a.href   = url;
+    a.download = '电池状态汇总.xlsx';
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+}
+</script>
