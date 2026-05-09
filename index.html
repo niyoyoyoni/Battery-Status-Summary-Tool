@@ -1,46 +1,58 @@
-
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>电池状态汇总处理工具</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-.wrap{padding:1.5rem 0;font-family:var(--font-sans);color:var(--color-text-primary)}
-.card{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:1.25rem 1.5rem;margin-bottom:1rem}
-.title{font-size:18px;font-weight:500;margin-bottom:4px}
-.sub{font-size:13px;color:var(--color-text-secondary);margin-bottom:1.25rem;line-height:1.6}
+body{background:#F5F5F5;font-family:Arial,sans-serif;color:#333}
+.wrap{max-width:780px;margin:2rem auto;padding:0 1rem}
+.card{background:#fff;border:1px solid #E0E0E0;border-radius:12px;padding:1.5rem 1.75rem;margin-bottom:1rem;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.title{font-size:18px;font-weight:500;margin-bottom:6px;color:#111}
+.sub{font-size:13px;color:#666;margin-bottom:1.25rem;line-height:1.7}
 .drop-zone{border:1.5px dashed #AAAAAA;border-radius:8px;padding:2.5rem 1rem;text-align:center;cursor:pointer;transition:background .15s}
-.drop-zone:hover,.drop-zone.over{background:#F5F5F5}
-.drop-icon{font-size:28px;margin-bottom:8px;color:var(--color-text-tertiary)}
-.drop-label{font-size:14px;color:var(--color-text-secondary)}
-.drop-label b{color:var(--color-text-primary);font-weight:500}
+.drop-zone:hover,.drop-zone.over{background:#F0F4FF}
+.drop-icon{font-size:32px;margin-bottom:8px;color:#AAA}
+.drop-label{font-size:14px;color:#666}
+.drop-label b{color:#222;font-weight:500}
 #file-input{display:none}
-.status-bar{display:none;align-items:center;gap:8px;padding:.7rem 1rem;border-radius:var(--border-radius-md);font-size:13px;margin-top:.75rem}
+.status-bar{display:none;align-items:center;gap:8px;padding:.7rem 1rem;border-radius:8px;font-size:13px;margin-top:.75rem}
 .status-bar.show{display:flex}
-.s-idle{background:var(--color-background-secondary);color:var(--color-text-secondary)}
+.s-idle{background:#F3F3F3;color:#666}
 .s-ok{background:#EAF3DE;color:#27500A}
 .s-err{background:#FCEBEB;color:#791F1F}
 .stats{display:none;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:.75rem}
 .stats.show{display:grid}
-.stat{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:.75rem 1rem;text-align:center}
-.stat-val{font-size:22px;font-weight:500}
-.stat-lbl{font-size:12px;color:var(--color-text-secondary);margin-top:2px}
+.stat{background:#F7F7F7;border-radius:8px;padding:.75rem 1rem;text-align:center}
+.stat-val{font-size:22px;font-weight:500;color:#111}
+.stat-lbl{font-size:12px;color:#888;margin-top:2px}
 .legend{display:none;gap:12px;flex-wrap:wrap;margin-top:.75rem}
 .legend.show{display:flex}
-.leg-item{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--color-text-secondary)}
+.leg-item{display:flex;align-items:center;gap:5px;font-size:12px;color:#666}
 .leg-dot{width:10px;height:10px;border-radius:50%}
-.preview{display:none;margin-top:.75rem;max-height:220px;overflow-y:auto;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md)}
+.preview{display:none;margin-top:.75rem;max-height:240px;overflow-y:auto;border:1px solid #E8E8E8;border-radius:8px}
 .preview.show{display:block}
 .preview table{width:100%;font-size:12px;border-collapse:collapse}
-.preview th{background:var(--color-background-secondary);padding:6px 8px;font-weight:500;position:sticky;top:0;text-align:center;border-bottom:0.5px solid var(--color-border-tertiary);white-space:nowrap}
-.preview td{padding:5px 8px;border-bottom:0.5px solid var(--color-border-tertiary);text-align:center}
+.preview th{background:#F3F3F3;padding:7px 10px;font-weight:500;position:sticky;top:0;text-align:center;border-bottom:1px solid #E8E8E8;white-space:nowrap;color:#333}
+.preview td{padding:5px 10px;border-bottom:1px solid #F0F0F0;text-align:center;color:#333}
 .preview tr:last-child td{border-bottom:none}
-.r-jing td{background:#D9EAD3}.r-chong td{background:#FCE5CD}.r-fang td{background:#CFE2F3}
-.btn-dl{display:none;width:100%;padding:.7rem;font-size:14px;font-weight:500;border-radius:var(--border-radius-md);cursor:pointer;border:none;background:#185FA5;color:#fff;margin-top:.75rem}
+.r-jing td{background:#D9EAD3}
+.r-chong td{background:#FCE5CD}
+.r-fang td{background:#CFE2F3}
+.btn-dl{display:none;width:100%;padding:.75rem;font-size:14px;font-weight:500;border-radius:8px;cursor:pointer;border:none;background:#185FA5;color:#fff;margin-top:.75rem;transition:background .15s}
 .btn-dl:hover{background:#0C447C}
 .btn-dl.show{display:block}
 </style>
-
+</head>
+<body>
 <div class="wrap">
 <div class="card">
   <div class="title">电池状态汇总处理工具</div>
-  <div class="sub">上传原始 .xlsx 文件（列位置：A=时间、E=SOC、M=累计充电Ah、N=累计放电Ah、O=运行状态），自动输出充电/放电/静置分段汇总。</div>
+  <div class="sub">
+    上传原始 .xlsx 文件（列位置：A=时间、E=SOC、M=累计充电Ah、N=累计放电Ah、O=运行状态），自动输出充电/放电/静置分段汇总。<br>
+    表头为中文则输出中文列名，表头为英文则输出英文列名。
+  </div>
   <div class="drop-zone" id="dz" onclick="document.getElementById('file-input').click()">
     <div class="drop-icon">📄</div>
     <div class="drop-label"><b>点击选择文件</b>&nbsp;或将 .xlsx 拖入此处</div>
@@ -48,14 +60,14 @@
   <input type="file" id="file-input" accept=".xlsx,.xls">
   <div class="status-bar" id="statusBar"><span id="statusText"></span></div>
   <div class="stats" id="stats">
-    <div class="stat"><div class="stat-val" id="sTotal">0</div><div class="stat-lbl">状态段总数</div></div>
-    <div class="stat"><div class="stat-val" id="sChong">0</div><div class="stat-lbl">充电段</div></div>
-    <div class="stat"><div class="stat-val" id="sFang">0</div><div class="stat-lbl">放电段</div></div>
+    <div class="stat"><div class="stat-val" id="sTotal">0</div><div class="stat-lbl" id="lTotal">状态段总数</div></div>
+    <div class="stat"><div class="stat-val" id="sChong">0</div><div class="stat-lbl" id="lChong">充电段</div></div>
+    <div class="stat"><div class="stat-val" id="sFang">0</div><div class="stat-lbl" id="lFang">放电段</div></div>
   </div>
   <div class="legend" id="legend">
-    <div class="leg-item"><div class="leg-dot" style="background:#8DB08D"></div>静置</div>
-    <div class="leg-item"><div class="leg-dot" style="background:#F4B183"></div>充电</div>
-    <div class="leg-item"><div class="leg-dot" style="background:#6FA8C8"></div>放电</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#8DB08D"></div><span id="lgJing">静置</span></div>
+    <div class="leg-item"><div class="leg-dot" style="background:#F4B183"></div><span id="lgChong">充电</span></div>
+    <div class="leg-item"><div class="leg-dot" style="background:#6FA8C8"></div><span id="lgFang">放电</span></div>
   </div>
   <div class="preview" id="preview">
     <table><thead id="thead"></thead><tbody id="tbody"></tbody></table>
@@ -72,8 +84,14 @@ var resultWB = null;
 var dz = document.getElementById('dz');
 dz.addEventListener('dragover', function(e){ e.preventDefault(); dz.classList.add('over'); });
 dz.addEventListener('dragleave', function(){ dz.classList.remove('over'); });
-dz.addEventListener('drop', function(e){ e.preventDefault(); dz.classList.remove('over'); if(e.dataTransfer.files[0]) processFile(e.dataTransfer.files[0]); });
-document.getElementById('file-input').addEventListener('change', function(){ if(this.files[0]) processFile(this.files[0]); });
+dz.addEventListener('drop', function(e){
+  e.preventDefault();
+  dz.classList.remove('over');
+  if (e.dataTransfer.files[0]) processFile(e.dataTransfer.files[0]);
+});
+document.getElementById('file-input').addEventListener('change', function(){
+  if (this.files[0]) processFile(this.files[0]);
+});
 
 function setStatus(msg, type) {
   var bar = document.getElementById('statusBar');
@@ -81,18 +99,36 @@ function setStatus(msg, type) {
   document.getElementById('statusText').textContent = msg;
 }
 
-function hide(){ ['stats','legend','preview'].forEach(function(id){ document.getElementById(id).classList.remove('show'); }); document.getElementById('btnDl').classList.remove('show'); }
+function hideExtras() {
+  ['stats','legend','preview'].forEach(function(id){
+    document.getElementById(id).classList.remove('show');
+  });
+  document.getElementById('btnDl').classList.remove('show');
+}
 
-/* 把 Excel 序列数（如 44927.5）转成 "YYYY-MM-DD HH:mm:ss" 字符串 */
+/* 判断字符串是否含有中文字符 */
+function hasChinese(str) {
+  return /[\u4e00-\u9fff]/.test(String(str || ''));
+}
+
+/* 检测表头行语言：任意单元格含中文即判为中文 */
+function detectLang(headerRow) {
+  for (var i = 0; i < headerRow.length; i++) {
+    if (hasChinese(headerRow[i])) return 'zh';
+  }
+  return 'en';
+}
+
+/* Excel 序列数转 "YYYY-MM-DD HH:mm:ss" */
 function excelDateToStr(serial) {
-  /* Excel 以 1900-01-01 为第1天，但有闰年Bug把1900-02-29算在内，所以要-1 */
   var utc = (serial - 25569) * 86400 * 1000;
   var d = new Date(utc);
   var z = function(n){ return String(n).padStart(2,'0'); };
-  return d.getUTCFullYear()+'-'+z(d.getUTCMonth()+1)+'-'+z(d.getUTCDate())+' '+z(d.getUTCHours())+':'+z(d.getUTCMinutes())+':'+z(d.getUTCSeconds());
+  return d.getUTCFullYear()+'-'+z(d.getUTCMonth()+1)+'-'+z(d.getUTCDate())+
+         ' '+z(d.getUTCHours())+':'+z(d.getUTCMinutes())+':'+z(d.getUTCSeconds());
 }
 
-/* 安全转数字：支持 number / Date 对象 / 字符串 */
+/* 安全转数字 */
 function toNum(v) {
   if (v === null || v === undefined || v === '') return 0;
   if (typeof v === 'number') return v;
@@ -101,58 +137,106 @@ function toNum(v) {
   return parseFloat(s) || 0;
 }
 
-/* 把时间列原始值转字符串，兼容三种情况：Date对象 / Excel序列数 / 已是字符串 */
+/* 时间列原始值转字符串，兼容 Date 对象 / Excel 序列数 / 字符串 */
 function timeToStr(v) {
   if (!v && v !== 0) return '';
   if (v instanceof Date) {
     var z = function(n){ return String(n).padStart(2,'0'); };
-    return v.getFullYear()+'-'+z(v.getMonth()+1)+'-'+z(v.getDate())+' '+z(v.getHours())+':'+z(v.getMinutes())+':'+z(v.getSeconds());
+    return v.getFullYear()+'-'+z(v.getMonth()+1)+'-'+z(v.getDate())+
+           ' '+z(v.getHours())+':'+z(v.getMinutes())+':'+z(v.getSeconds());
   }
   if (typeof v === 'number') return excelDateToStr(v);
   return String(v);
 }
 
+/* 状态值规范化：支持中英文输入，统一映射为内部中文键 */
+function normalizeState(raw) {
+  var s = String(raw || '').trim();
+  var map = {
+    '静置':'静置','充电':'充电','放电':'放电',
+    'rest':'静置','idle':'静置','standby':'静置',
+    'charge':'充电','charging':'充电',
+    'discharge':'放电','discharging':'放电'
+  };
+  return map[s.toLowerCase()] || map[s] || null;
+}
+
 function processFile(file) {
   resultWB = null;
-  hide();
+  hideExtras();
   setStatus('读取文件中...', 'idle');
 
   var reader = new FileReader();
   reader.onload = function(e) {
     try {
       var data = new Uint8Array(e.target.result);
-
-      /* 关键：不传 cellDates，让日期以原始数字读入，避免和 raw 选项冲突 */
       var wb = XLSX.read(data, { type: 'array' });
       var ws = wb.Sheets[wb.SheetNames[0]];
-
-      /* raw:true → 所有值保持原始类型（数字/字符串），不做格式化 */
       var allRows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: true });
 
       if (allRows.length < 2) { setStatus('文件数据为空', 'err'); return; }
 
+      /* ---- 语言检测 ---- */
+      var headerRow = allRows[0];
+      var lang = detectLang(headerRow);
+      var isEn = (lang === 'en');
+
+      /* ---- 多语言文案 ---- */
+      var T = {
+        outHeaders: isEn
+          ? ['Status', 'Start Time', 'End Time', 'Start SOC', 'End SOC', 'Charge/Discharge Ah']
+          : ['运行状态', '起始时间', '结束时间', '起始SOC', '结束SOC', '放电/充电Ah数'],
+        statTotal:  isEn ? 'Total segments'      : '状态段总数',
+        statChong:  isEn ? 'Charge segments'     : '充电段',
+        statFang:   isEn ? 'Discharge segments'  : '放电段',
+        lgJing:     isEn ? 'Rest'      : '静置',
+        lgChong:    isEn ? 'Charge'    : '充电',
+        lgFang:     isEn ? 'Discharge' : '放电',
+        dlBtn:      isEn ? '↓ Download Summary Excel' : '↓ 下载汇总 Excel',
+        ok: function(n){
+          return isEn
+            ? 'Done — ' + n + ' segments found (first 20 shown below)'
+            : '处理完成，共 ' + n + ' 个状态段（下方显示前20行）';
+        },
+        empty:    isEn
+          ? 'No Rest/Charge/Discharge data found. Please confirm column O is the status column.'
+          : '未找到静置/充电/放电数据，请确认 O 列是运行状态列',
+        fileName:  isEn ? 'battery_status_summary.xlsx' : '电池状态汇总.xlsx',
+        sheetName: isEn ? 'Battery Status Summary'      : '电池状态汇总'
+      };
+
+      /* ---- 更新 UI 文案 ---- */
+      document.getElementById('lTotal').textContent  = T.statTotal;
+      document.getElementById('lChong').textContent  = T.statChong;
+      document.getElementById('lFang').textContent   = T.statFang;
+      document.getElementById('lgJing').textContent  = T.lgJing;
+      document.getElementById('lgChong').textContent = T.lgChong;
+      document.getElementById('lgFang').textContent  = T.lgFang;
+      document.getElementById('btnDl').textContent   = T.dlBtn;
+
       var TIME=0, SOC=4, M=12, N=13, STATE=14;
       var validSet = { '静置':1, '充电':1, '放电':1 };
 
-      /* 跳过第0行（表头），过滤有效状态行 */
+      /* 过滤有效状态行（跳过第0行表头） */
       var filtered = [];
       for (var i = 1; i < allRows.length; i++) {
         var row = allRows[i];
-        var s = String(row[STATE] || '').trim();
-        if (validSet[s]) filtered.push(row);
+        var norm = normalizeState(row[STATE]);
+        if (norm && validSet[norm]) {
+          var copy = row.slice();
+          copy._norm = norm;
+          filtered.push(copy);
+        }
       }
 
-      if (filtered.length === 0) {
-        setStatus('未找到静置/充电/放电数据，请确认 O 列是运行状态列', 'err');
-        return;
-      }
+      if (filtered.length === 0) { setStatus(T.empty, 'err'); return; }
 
-      /* 识别连续分组：状态相同的连续行归一组 */
+      /* 识别连续分组 */
       var groups = [];
       var cur = null;
       for (var j = 0; j < filtered.length; j++) {
         var row = filtered[j];
-        var s = String(row[STATE] || '').trim();
+        var s = row._norm;
         if (!cur || cur.state !== s) {
           cur = { state: s, rows: [row] };
           groups.push(cur);
@@ -161,20 +245,20 @@ function processFile(file) {
         }
       }
 
+      /* 状态标签输出语言 */
+      var stateLabel = isEn
+        ? { '静置':'Rest', '充电':'Charge', '放电':'Discharge' }
+        : { '静置':'静置', '充电':'充电',   '放电':'放电'   };
+
       /*
-        Python 原始逻辑：数据是倒序排列（最新行在最上面）
-          iloc[0]  = 第一行 = 最新时刻 = 结束时间
-          iloc[-1] = 最后行 = 最早时刻 = 起始时间
-        JS 里：
-          rows[0]            = firstRow = 结束
-          rows[rows.length-1] = lastRow  = 起始
+        数据倒序排列：rows[0] = 最新（结束），rows[last] = 最早（起始）
       */
       var results = [];
       for (var k = 0; k < groups.length; k++) {
         var g = groups[k];
         var r = g.rows;
-        var endRow   = r[0];              // 最新（结束）
-        var startRow = r[r.length - 1];   // 最早（起始）
+        var endRow   = r[0];
+        var startRow = r[r.length - 1];
 
         var startTime = timeToStr(startRow[TIME]);
         var endTime   = timeToStr(endRow[TIME]);
@@ -183,20 +267,19 @@ function processFile(file) {
 
         var ah;
         if (g.state === '充电') {
-          /* M列：累计充电安时，结束值(endRow) - 起始值(startRow) */
           ah = toNum(endRow[M]) - toNum(startRow[M]);
         } else {
-          /* N列：累计放电安时，静置/放电同逻辑 */
           ah = toNum(endRow[N]) - toNum(startRow[N]);
         }
         ah = Math.round(ah * 10000) / 10000;
 
-        results.push([g.state, startTime, endTime, startSOC, endSOC, ah]);
+        /* 最后一列 _state 仅用于内部着色，不输出到文件 */
+        results.push([stateLabel[g.state], startTime, endTime, startSOC, endSOC, ah, g.state]);
       }
 
       /* 统计 */
       var chong=0, fang=0;
-      results.forEach(function(r){ if(r[0]==='充电') chong++; else if(r[0]==='放电') fang++; });
+      results.forEach(function(r){ if(r[6]==='充电') chong++; else if(r[6]==='放电') fang++; });
       document.getElementById('sTotal').textContent = results.length;
       document.getElementById('sChong').textContent = chong;
       document.getElementById('sFang').textContent  = fang;
@@ -204,17 +287,20 @@ function processFile(file) {
       document.getElementById('legend').classList.add('show');
 
       /* 预览表格（最多前20行） */
-      var headers = ['运行状态','起始时间','结束时间','起始SOC','结束SOC','放电/充电Ah数'];
-      document.getElementById('thead').innerHTML = '<tr>' + headers.map(function(h){ return '<th>'+h+'</th>'; }).join('') + '</tr>';
+      var headers = T.outHeaders;
+      document.getElementById('thead').innerHTML =
+        '<tr>' + headers.map(function(h){ return '<th>'+h+'</th>'; }).join('') + '</tr>';
       var stClass = { '静置':'r-jing', '充电':'r-chong', '放电':'r-fang' };
       document.getElementById('tbody').innerHTML = results.slice(0,20).map(function(r){
-        return '<tr class="'+(stClass[r[0]]||'')+'">'+r.map(function(v){ return '<td>'+v+'</td>'; }).join('')+'</tr>';
+        return '<tr class="'+(stClass[r[6]]||'')+'">'+
+          r.slice(0,6).map(function(v){ return '<td>'+v+'</td>'; }).join('')+
+          '</tr>';
       }).join('');
       document.getElementById('preview').classList.add('show');
 
-      /* 构建输出 Workbook（用 ExcelJS，支持完整样式） */
+      /* 构建输出 Workbook（ExcelJS） */
       var EWB = new ExcelJS.Workbook();
-      var EWS = EWB.addWorksheet('电池状态汇总');
+      var EWS = EWB.addWorksheet(T.sheetName);
 
       EWS.columns = [
         {width:12},{width:22},{width:22},{width:12},{width:12},{width:18}
@@ -224,7 +310,7 @@ function processFile(file) {
       var allBorder = {top:thin, left:thin, bottom:thin, right:thin};
 
       /* 表头行 */
-      var hdrRow = EWS.addRow(['运行状态','起始时间','结束时间','起始SOC','结束SOC','放电/充电Ah数']);
+      var hdrRow = EWS.addRow(headers);
       hdrRow.height = 22;
       hdrRow.eachCell(function(cell){
         cell.font      = {bold:true, color:{argb:'FFFFFFFF'}, name:'Arial', size:11};
@@ -236,8 +322,8 @@ function processFile(file) {
       /* 数据行 */
       var fillMap = {'静置':'FFD9EAD3','充电':'FFFCE5CD','放电':'FFCFE2F3'};
       results.forEach(function(r){
-        var row = EWS.addRow(r);
-        var fg  = fillMap[r[0]] || 'FFFFFFFF';
+        var row = EWS.addRow(r.slice(0,6));
+        var fg  = fillMap[r[6]] || 'FFFFFFFF';
         row.eachCell(function(cell){
           cell.font      = {name:'Arial', size:10, color:{argb:'FF333333'}};
           cell.fill      = {type:'pattern', pattern:'solid', fgColor:{argb:fg}};
@@ -246,9 +332,8 @@ function processFile(file) {
         });
       });
 
-      resultWB = EWB;
-
-      setStatus('处理完成，共 ' + results.length + ' 个状态段（下方显示前20行）', 'ok');
+      resultWB = { wb: EWB, fileName: T.fileName };
+      setStatus(T.ok(results.length), 'ok');
       document.getElementById('btnDl').classList.add('show');
 
     } catch(err) {
@@ -261,14 +346,16 @@ function processFile(file) {
 
 function downloadResult() {
   if (!resultWB) return;
-  resultWB.xlsx.writeBuffer().then(function(buf){
+  resultWB.wb.xlsx.writeBuffer().then(function(buf){
     var blob = new Blob([buf], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
     var url  = URL.createObjectURL(blob);
     var a    = document.createElement('a');
     a.href   = url;
-    a.download = '电池状态汇总.xlsx';
+    a.download = resultWB.fileName;
     a.click();
     URL.revokeObjectURL(url);
   });
 }
 </script>
+</body>
+</html>
